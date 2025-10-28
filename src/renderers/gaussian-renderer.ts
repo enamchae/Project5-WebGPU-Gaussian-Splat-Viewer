@@ -29,12 +29,6 @@ export default function get_renderer(
 ): GaussianRenderer {
 
   const sorter = get_sorter(pc.num_points, device);
-  
-  // ===============================================
-  //            Initialize GPU Buffers
-  // ===============================================
-
-  const nulling_data = new Uint32Array([0]);
 
   // ===============================================
   //    Create Compute Pipeline and Bind Groups

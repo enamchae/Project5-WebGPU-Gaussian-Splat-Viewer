@@ -142,9 +142,6 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
 
     //TODO: set up pipeline as described in instruction
 
-    let keys_per_dispatch = workgroupSize * sortKeyPerThread; 
-    // increment DispatchIndirect.dispatchx each time you reach limit for one dispatch of keys
-
     let gaussian = gaussians[idx];
 
     let a = unpack2x16float(gaussian.pos_opacity[0]);
@@ -246,4 +243,15 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     splats[idx].conic = conic;
     splats[idx].color = color;
     splats[idx].culled = 0;
+    
+    let sortIndex = atomicAdd(&sort_infos.keys_size, 1u);
+    sort_depths[sortIndex] = bitcast<u32>(-viewPos.z);
+    sort_indices[sortIndex] = idx;
+    
+
+    let keys_per_dispatch = workgroupSize * sortKeyPerThread; 
+    // increment DispatchIndirect.dispatchx each time you reach limit for one dispatch of keys
+    if (sort_idx % keys_per_dispatch) == 0u {
+        atomicAdd(&sort_dispatch.dispatch_x, 1u);
+    }
 }
