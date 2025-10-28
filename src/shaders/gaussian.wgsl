@@ -84,9 +84,18 @@ fn vs_main(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if in.culled == 1 { discard; }
 
-    let posDiff = (in.position.xy - in.uv);
-    let conic = mat2x2f(in.conicUpperTriangle.x, in.conicUpperTriangle.y, in.conicUpperTriangle.y, in.conicUpperTriangle.z);
-    let alpha = in.opacity * exp(-dot(posDiff, conic * posDiff) / 2);
+    let posDiff = in.position.xy - in.uv;
+    let conic = mat2x2f(
+        in.conicUpperTriangle.x, in.conicUpperTriangle.y, 
+        in.conicUpperTriangle.y, in.conicUpperTriangle.z,
+    );
     
-    return vec4f(in.color, alpha);
+    let power = -0.5 * dot(posDiff, conic * posDiff);
+    if power > 0 { discard; }
+    
+    let alpha = min(1, in.opacity * exp(power));
+    
+    if alpha < 1. / 255. { discard; }
+    
+    return vec4f(in.color * alpha, alpha);
 }

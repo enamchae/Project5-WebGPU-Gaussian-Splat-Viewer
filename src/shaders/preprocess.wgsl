@@ -150,7 +150,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let a = unpack2x16float(gaussian.pos_opacity[0]);
     let b = unpack2x16float(gaussian.pos_opacity[1]);
     let pos = vec3f(a.x, a.y, b.x);
-    let opacity = b.y;
+    let opacity = 1 / (1 + exp(-b.y));
 
     let rot0 = unpack2x16float(gaussian.rot[0]);
     let rot1 = unpack2x16float(gaussian.rot[1]);
@@ -163,7 +163,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
 
     let scale0 = unpack2x16float(gaussian.scale[0]);
     let scale1 = unpack2x16float(gaussian.scale[1]);
-    let scale = vec3(scale0.x, scale0.y, scale1.x);
+    let scale = vec3f(exp(scale0.x), exp(scale0.y), exp(scale1.x));
     let scaleMat = mat3x3f(
         scale.x, 0, 0,
         0, scale.y, 0,
@@ -217,6 +217,13 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let maxEigen = max(eigen1, eigen2);
     let radius = ceil(3 * sqrt(maxEigen));
     
+    const MARGIN = 0.2;
+    if uv.x < -cameraUniforms.viewport.x * MARGIN || uv.x > cameraUniforms.viewport.x * (1 + MARGIN)
+       || uv.y < -cameraUniforms.viewport.y * MARGIN || uv.y > cameraUniforms.viewport.y + (1 + MARGIN) {
+        splats[idx].culled = 1;
+        return;
+    }
+    
     let projViewPosHom = cameraUniforms.proj * vec4f(viewPos, 1);
     if projViewPosHom.w < 0 {
         splats[idx].culled = 1;
@@ -230,6 +237,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     let cameraDir = normalize(pos - cameraUniforms.view_inv[3].xyz);
     let color = computeColorFromSH(cameraDir, idx, 3);
+    
     
     splats[idx].radius = radius;
     splats[idx].opacity = opacity;

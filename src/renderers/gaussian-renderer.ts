@@ -194,7 +194,7 @@ export default function get_renderer(
   // ===============================================
   const splatBuffer = device.createBuffer({
     label: "splat buffer",
-    size: pc.num_points * 48, // Updated size: radius(4) + opacity(4) + uv(8) + conic(16) + color(12) + padding(4) = 48 bytes
+    size: pc.num_points * 48,
     usage: GPUBufferUsage.STORAGE,
   });
 
@@ -216,7 +216,21 @@ export default function get_renderer(
     fragment: {
       module: render_shader,
       entryPoint: 'fs_main',
-      targets: [{ format: presentation_format }],
+      targets: [{
+        format: presentation_format,
+        blend: {
+          color: {
+            srcFactor: "one",
+            dstFactor: "one-minus-src-alpha",
+            operation: "add",
+          },
+          alpha: {
+            srcFactor: "one",
+            dstFactor: "one-minus-src-alpha",
+            operation: "add",
+          },
+        },
+      }],
     },
     primitive: {
       topology: 'triangle-list',
