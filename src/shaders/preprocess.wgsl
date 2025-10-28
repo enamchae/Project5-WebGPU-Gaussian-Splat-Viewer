@@ -57,7 +57,7 @@ struct Gaussian {
 
 struct Splat {
     //TODO: store information for 2D splat rendering
-    pos: vec3f, // dummy
+    radius: f32,
 };
 
 //TODO: bind your data here
@@ -69,6 +69,11 @@ var<storage, read_write> sort_depths : array<u32>;
 var<storage, read_write> sort_indices : array<u32>;
 @group(0) @binding(3)
 var<storage, read_write> sort_dispatch: DispatchIndirect;
+
+@group(1) @binding(0)
+var<storage,read> gaussians: array<Gaussian>;
+@group(1) @binding(1)
+var<storage, read> splats: array<Splat>;
 
 /// reads the ith sh coef from the storage buffer 
 fn sh_coef(splat_idx: u32, c_idx: u32) -> vec3<f32> {

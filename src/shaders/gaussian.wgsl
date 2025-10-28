@@ -13,21 +13,23 @@ struct Gaussian {
     scale: array<u32,2>
 }
 
+struct Splat {
+    //TODO: information defined in preprocess compute shader
+    radius: f32,
+}
+
 @group(0) @binding(0)
 var<uniform> camera: CameraUniforms;
 
 @group(1) @binding(0)
 var<storage,read> gaussians : array<Gaussian>;
 
+@group(1) @binding(1)
+var<storage, read> splats: array<Splat>;
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     //TODO: information passed from vertex shader to fragment shader
-};
-
-struct Splat {
-    //TODO: information defined in preprocess compute shader
-    pos: vec3f,
 };
 
 @vertex
@@ -38,11 +40,11 @@ fn vs_main(
     var out: VertexOutput;
 
     let vertex = gaussians[in_vertex_index];
+    let splat = splats[in_vertex_index];
     let a = unpack2x16float(vertex.pos_opacity[0]);
     let b = unpack2x16float(vertex.pos_opacity[1]);
     let pos = vec4<f32>(a.x, a.y, b.x, 1.);
 
-    // TODO: MVP calculations
     out.position = camera.proj * camera.view * pos;
 
     return out;

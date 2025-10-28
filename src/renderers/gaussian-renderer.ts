@@ -108,6 +108,14 @@ export default function get_renderer(
   // ===============================================
   //    Create Render Pipeline and Bind Groups
   // ===============================================
+  const splatBuffer = device.createBuffer({
+    label: "splat buffer",
+    size: pc.num_points * 16,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+  });
+
+
+
   const render_shader = device.createShaderModule({code: renderWGSL});
   const render_pipeline = device.createRenderPipeline({
     label: 'render',
@@ -137,9 +145,9 @@ export default function get_renderer(
     layout: render_pipeline.getBindGroupLayout(1),
     entries: [
       {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
+      {binding: 1, resource: { buffer: splatBuffer }},
     ],
   });
-  
 
   // ===============================================
   //    Command Encoder Functions
@@ -152,8 +160,17 @@ export default function get_renderer(
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
       sorter.sort(encoder);
+
+      const computePass = encoder.beginComputePass({
+        label: "Gaussian preprocess compute pass",
+      });
+      computePass.setPipeline(preprocess_pipeline);
+      computePass.setBindGroup(0, sort_bind_group);
+      computePass.setBindGroup(1, gaussian_bind_group);
+      computePass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
+      computePass.end();
       
-      const pass = encoder.beginRenderPass({
+      const renderPass = encoder.beginRenderPass({
         label: 'Gaussian render pass',
         colorAttachments: [
           {
@@ -163,12 +180,12 @@ export default function get_renderer(
           }
         ],
       });
-      pass.setPipeline(render_pipeline);
-      pass.setBindGroup(0, camera_bind_group);
-      pass.setBindGroup(1, gaussian_bind_group);
+      renderPass.setPipeline(render_pipeline);
+      renderPass.setBindGroup(0, camera_bind_group);
+      renderPass.setBindGroup(1, gaussian_bind_group);
   
-      pass.draw(pc.num_points);
-      pass.end();
+      renderPass.draw(pc.num_points);
+      renderPass.end();
 
     },
     camera_buffer,
