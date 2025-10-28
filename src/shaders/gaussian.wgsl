@@ -67,7 +67,7 @@ fn vs_main(
         return out;
     }
 
-    var uvNormalized = (splat.uv + quadOffsets[in_vertex_index] * splat.radius) / camera.viewport * 2 - 1;
+    var uvNormalized = (splat.uv + quadOffsets[in_vertex_index] * splat.radius * 4) / camera.viewport * 2 - 1;
     uvNormalized.y *= -1;
 
     out.position = vec4(uvNormalized, 0, 1);
@@ -94,8 +94,5 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if power > 0 { discard; }
     
     let alpha = min(1, in.opacity * exp(power));
-    
-    if alpha < 1. / 255. { discard; }
-    
     return vec4f(in.color * alpha, alpha);
 }

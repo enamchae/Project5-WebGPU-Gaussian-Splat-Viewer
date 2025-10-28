@@ -276,8 +276,6 @@ export default function get_renderer(
   // ===============================================
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
-      sorter.sort(encoder);
-
       const computePass = encoder.beginComputePass({
         label: "Gaussian preprocess compute pass",
       });
@@ -288,6 +286,8 @@ export default function get_renderer(
       computePass.setBindGroup(3, camera_bind_group)
       computePass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
       computePass.end();
+
+      // sorter.sort(encoder);
       
       const renderPass = encoder.beginRenderPass({
         label: 'Gaussian render pass',

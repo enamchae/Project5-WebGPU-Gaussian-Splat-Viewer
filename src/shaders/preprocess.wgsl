@@ -251,7 +251,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
 
     let keys_per_dispatch = workgroupSize * sortKeyPerThread; 
     // increment DispatchIndirect.dispatchx each time you reach limit for one dispatch of keys
-    if (sort_idx % keys_per_dispatch) == 0u {
+    if (sortIndex % keys_per_dispatch) == 0u {
         atomicAdd(&sort_dispatch.dispatch_x, 1u);
     }
 }
