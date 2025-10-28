@@ -5,6 +5,7 @@ struct VertexOutput {
 
 struct Splat {
     //TODO: information defined in preprocess compute shader
+    pos: vec3f,
 };
 
 @vertex

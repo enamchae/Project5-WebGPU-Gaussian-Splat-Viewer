@@ -39,9 +39,50 @@ export default function get_renderer(
   // ===============================================
   //    Create Compute Pipeline and Bind Groups
   // ===============================================
+  
+  // Create explicit bind group layout for sort data
+  const sortLayout = device.createBindGroupLayout({
+    label: "sort layout",
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "storage",
+        }
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "storage",
+        }
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "storage",
+        }
+      },
+      {
+        binding: 3,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "storage",
+        }
+      },
+    ],
+  });
+
+  const preprocessLayout = device.createPipelineLayout({
+    label: "preprocess layout",
+    bindGroupLayouts: [sortLayout],
+  });
+
   const preprocess_pipeline = device.createComputePipeline({
     label: 'preprocess',
-    layout: 'auto',
+    layout: preprocessLayout,
     compute: {
       module: device.createShaderModule({ code: preprocessWGSL }),
       entryPoint: 'preprocess',
@@ -54,7 +95,7 @@ export default function get_renderer(
 
   const sort_bind_group = device.createBindGroup({
     label: 'sort',
-    layout: preprocess_pipeline.getBindGroupLayout(2),
+    layout: sortLayout,
     entries: [
       { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
       { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
