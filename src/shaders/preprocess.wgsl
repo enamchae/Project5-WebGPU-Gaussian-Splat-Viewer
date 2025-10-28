@@ -206,11 +206,11 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     );
     let radius = ceil(3 * sqrt(variance));
     
-    let projPos = cameraUniforms.proj * vec4f(viewPos, 1);
-    let projPos2 = projPos.xyz / projPos.w;
+    let projViewPosHom = cameraUniforms.proj * vec4f(viewPos, 1);
+    let projViewPos = projViewPosHom.xyz / projViewPosHom.w;
     let uv = vec2f(
-        (projPos2.x * 0.5 + 0.5) * cameraUniforms.viewport.x,
-        (1 - (projPos2.y * 0.5 + 0.5)) * cameraUniforms.viewport.y,
+        (projViewPos.x * 0.5 + 0.5) * cameraUniforms.viewport.x,
+        (1 - (projViewPos.y * 0.5 + 0.5)) * cameraUniforms.viewport.y,
     );
     
     splats[idx].radius = radius;

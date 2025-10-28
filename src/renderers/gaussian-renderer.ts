@@ -219,7 +219,7 @@ export default function get_renderer(
       targets: [{ format: presentation_format }],
     },
     primitive: {
-      topology: 'point-list',
+      topology: 'triangle-list',
     },
   });
 
@@ -295,7 +295,7 @@ export default function get_renderer(
       renderPass.setBindGroup(0, camera_bind_group);
       renderPass.setBindGroup(1, gaussianGroupRender);
   
-      renderPass.draw(pc.num_points);
+      renderPass.draw(6, pc.num_points);
       renderPass.end();
 
     },
