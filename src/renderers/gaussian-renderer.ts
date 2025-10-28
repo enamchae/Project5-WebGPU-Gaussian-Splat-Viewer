@@ -1,7 +1,6 @@
 import { PointCloud } from '../utils/load';
 import preprocessWGSL from '../shaders/preprocess.wgsl';
 import renderWGSL from '../shaders/gaussian.wgsl';
-import pointCloudWgsl from "../shaders/point_cloud.wgsl";
 import { get_sorter,c_histogram_block_rows,C } from '../sort/sort';
 import { Renderer } from './renderer';
 
@@ -109,7 +108,7 @@ export default function get_renderer(
   // ===============================================
   //    Create Render Pipeline and Bind Groups
   // ===============================================
-  const render_shader = device.createShaderModule({code: pointCloudWgsl});
+  const render_shader = device.createShaderModule({code: renderWGSL});
   const render_pipeline = device.createRenderPipeline({
     label: 'render',
     layout: 'auto',
@@ -155,7 +154,7 @@ export default function get_renderer(
       sorter.sort(encoder);
       
       const pass = encoder.beginRenderPass({
-        label: 'point cloud render',
+        label: 'Gaussian render pass',
         colorAttachments: [
           {
             view: texture_view,
