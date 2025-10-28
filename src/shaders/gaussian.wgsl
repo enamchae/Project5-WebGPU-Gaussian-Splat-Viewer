@@ -20,6 +20,7 @@ struct Splat {
     uv: vec2f,
     conic: mat2x2f,
     color: vec3f,
+    culled: u32,
 }
 
 @group(0) @binding(0)
@@ -39,6 +40,7 @@ struct VertexOutput {
     @location(2) conicUpperTriangle: vec3f,
     @location(3) opacity: f32,
     @location(4) uv: vec2f,
+    @location(5) @interpolate(flat) culled: u32,
 };
 
 const quadOffsets = array(
@@ -60,6 +62,10 @@ fn vs_main(
 
     let vertex = gaussians[in_instance_index];
     let splat = splats[in_instance_index];
+    if splat.culled == 1 {
+        out.culled = 1;
+        return out;
+    }
 
     var uvNormalized = (splat.uv + quadOffsets[in_vertex_index] * splat.radius) / camera.viewport * 2 - 1;
     uvNormalized.y *= -1;
@@ -76,6 +82,8 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    if in.culled == 1 { discard; }
+
     let posDiff = (in.position.xy - in.uv);
     let conic = mat2x2f(in.conicUpperTriangle.x, in.conicUpperTriangle.y, in.conicUpperTriangle.y, in.conicUpperTriangle.z);
     let alpha = in.opacity * exp(-dot(posDiff, conic * posDiff) / 2);

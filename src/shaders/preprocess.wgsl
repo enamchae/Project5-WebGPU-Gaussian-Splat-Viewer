@@ -62,6 +62,7 @@ struct Splat {
     uv: vec2f,
     conic: mat2x2f,
     color: vec3f,
+    culled: u32,
 };
 
 //TODO: bind your data here
@@ -211,13 +212,16 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     let mid = 0.5 * (cov2[0][0] + cov2[1][1]);
     let mid2 = mid * mid;
-    let variance = max(
-        mid + sqrt(max(0.1, mid2 - det)),
-        mid - sqrt(max(0.1, mid2 - det)),
-    );
-    let radius = ceil(3 * sqrt(variance));
+    let eigen1 = mid + sqrt(max(0.1, mid2 - det));
+    let eigen2 = mid - sqrt(max(0.1, mid2 - det));
+    let maxEigen = max(eigen1, eigen2);
+    let radius = ceil(3 * sqrt(maxEigen));
     
     let projViewPosHom = cameraUniforms.proj * vec4f(viewPos, 1);
+    if projViewPosHom.w < 0 {
+        splats[idx].culled = 1;
+        return;
+    }
     let projViewPos = projViewPosHom.xyz / projViewPosHom.w;
     let uv = vec2f(
         (projViewPos.x * 0.5 + 0.5) * cameraUniforms.viewport.x,
@@ -232,4 +236,5 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     splats[idx].uv = uv;
     splats[idx].conic = conic;
     splats[idx].color = color;
+    splats[idx].culled = 0;
 }
