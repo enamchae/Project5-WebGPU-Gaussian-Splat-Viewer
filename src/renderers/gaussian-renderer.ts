@@ -1,6 +1,7 @@
 import { PointCloud } from '../utils/load';
 import preprocessWGSL from '../shaders/preprocess.wgsl';
 import renderWGSL from '../shaders/gaussian.wgsl';
+import pointCloudWgsl from "../shaders/point_cloud.wgsl";
 import { get_sorter,c_histogram_block_rows,C } from '../sort/sort';
 import { Renderer } from './renderer';
 
@@ -108,6 +109,37 @@ export default function get_renderer(
   // ===============================================
   //    Create Render Pipeline and Bind Groups
   // ===============================================
+  const render_shader = device.createShaderModule({code: pointCloudWgsl});
+  const render_pipeline = device.createRenderPipeline({
+    label: 'render',
+    layout: 'auto',
+    vertex: {
+      module: render_shader,
+      entryPoint: 'vs_main',
+    },
+    fragment: {
+      module: render_shader,
+      entryPoint: 'fs_main',
+      targets: [{ format: presentation_format }],
+    },
+    primitive: {
+      topology: 'point-list',
+    },
+  });
+
+  const camera_bind_group = device.createBindGroup({
+    label: 'point cloud camera',
+    layout: render_pipeline.getBindGroupLayout(0),
+    entries: [{binding: 0, resource: { buffer: camera_buffer }}],
+  });
+
+  const gaussian_bind_group = device.createBindGroup({
+    label: 'point cloud gaussians',
+    layout: render_pipeline.getBindGroupLayout(1),
+    entries: [
+      {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
+    ],
+  });
   
 
   // ===============================================
@@ -121,6 +153,24 @@ export default function get_renderer(
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
       sorter.sort(encoder);
+      
+      const pass = encoder.beginRenderPass({
+        label: 'point cloud render',
+        colorAttachments: [
+          {
+            view: texture_view,
+            loadOp: 'clear',
+            storeOp: 'store',
+          }
+        ],
+      });
+      pass.setPipeline(render_pipeline);
+      pass.setBindGroup(0, camera_bind_group);
+      pass.setBindGroup(1, gaussian_bind_group);
+  
+      pass.draw(pc.num_points);
+      pass.end();
+
     },
     camera_buffer,
   };
