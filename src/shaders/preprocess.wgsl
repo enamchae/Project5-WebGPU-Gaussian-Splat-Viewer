@@ -61,6 +61,7 @@ struct Splat {
     opacity: f32,
     uv: vec2f,
     conic: mat2x2f,
+    color: vec3f,
 };
 
 //TODO: bind your data here
@@ -77,6 +78,8 @@ var<storage, read_write> sort_dispatch: DispatchIndirect;
 var<storage,read> gaussians: array<Gaussian>;
 @group(1) @binding(1)
 var<storage, read_write> splats: array<Splat>;
+@group(1) @binding(2)
+var<storage, read> sphericalHarmonicCoeffs: array<u32>;
 
 @group(2) @binding(0)
 var<uniform> gaussianMultiplier: f32;
@@ -87,7 +90,15 @@ var<uniform> cameraUniforms: CameraUniforms;
 /// reads the ith sh coef from the storage buffer 
 fn sh_coef(splat_idx: u32, c_idx: u32) -> vec3<f32> {
     //TODO: access your binded sh_coeff, see load.ts for how it is stored
-    return vec3<f32>(0.0);
+    let coeffsIndex = ((splat_idx * 16 + c_idx) * 3);
+    let vals0 = unpack2x16float(sphericalHarmonicCoeffs[coeffsIndex / 2]);
+    let vals1 = unpack2x16float(sphericalHarmonicCoeffs[coeffsIndex / 2 + 1]);
+    
+    if (coeffsIndex & 1u) == 0u {
+        return vec3f(vals0.x, vals0.y, vals1.x);
+    } else {
+        return vec3f(vals0.y, vals1.x, vals1.y);
+    }
 }
 
 // spherical harmonics evaluation with Condon–Shortley phase
@@ -213,8 +224,12 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
         (1 - (projViewPos.y * 0.5 + 0.5)) * cameraUniforms.viewport.y,
     );
     
+    let cameraDir = normalize(pos - cameraUniforms.view_inv[3].xyz);
+    let color = computeColorFromSH(cameraDir, idx, 3);
+    
     splats[idx].radius = radius;
     splats[idx].opacity = opacity;
     splats[idx].uv = uv;
     splats[idx].conic = conic;
+    splats[idx].color = color;
 }

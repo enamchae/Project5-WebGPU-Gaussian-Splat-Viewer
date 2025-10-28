@@ -19,6 +19,7 @@ struct Splat {
     opacity: f32,
     uv: vec2f,
     conic: mat2x2f,
+    color: vec3f,
 }
 
 @group(0) @binding(0)
@@ -33,7 +34,11 @@ var<storage, read> splats: array<Splat>;
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     //TODO: information passed from vertex shader to fragment shader
-    @location(0) radius: f32,
+    @location(0) color: vec3f,
+    @location(1) radius: f32,
+    @location(2) conicUpperTriangle: vec3f,
+    @location(3) opacity: f32,
+    @location(4) uv: vec2f,
 };
 
 const quadOffsets = array(
@@ -61,11 +66,19 @@ fn vs_main(
 
     out.position = vec4(uvNormalized, 0, 1);
     out.radius = splat.radius;
+    out.color = splat.color;
+    out.conicUpperTriangle = vec3f(splat.conic[0][0], splat.conic[0][1], splat.conic[1][1]);
+    out.opacity = splat.opacity;
+    out.uv = splat.uv;
 
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4f(1, 1, 1, 1);
+    let posDiff = (in.position.xy - in.uv);
+    let conic = mat2x2f(in.conicUpperTriangle.x, in.conicUpperTriangle.y, in.conicUpperTriangle.y, in.conicUpperTriangle.z);
+    let alpha = in.opacity * exp(-dot(posDiff, conic * posDiff) / 2);
+    
+    return vec4f(in.color, alpha);
 }
