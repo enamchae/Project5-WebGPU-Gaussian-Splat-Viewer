@@ -218,11 +218,6 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let radius = ceil(3 * sqrt(maxEigen));
     
     const MARGIN = 0.2;
-    if uv.x < -cameraUniforms.viewport.x * MARGIN || uv.x > cameraUniforms.viewport.x * (1 + MARGIN)
-       || uv.y < -cameraUniforms.viewport.y * MARGIN || uv.y > cameraUniforms.viewport.y + (1 + MARGIN) {
-        splats[idx].culled = 1;
-        return;
-    }
     
     let projViewPosHom = cameraUniforms.proj * vec4f(viewPos, 1);
     if projViewPosHom.w < 0 {
@@ -234,6 +229,12 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
         (projViewPos.x * 0.5 + 0.5) * cameraUniforms.viewport.x,
         (1 - (projViewPos.y * 0.5 + 0.5)) * cameraUniforms.viewport.y,
     );
+    
+    if uv.x + radius < -cameraUniforms.viewport.x * MARGIN || uv.x - radius > cameraUniforms.viewport.x * (1 + MARGIN)
+       || uv.y + radius < -cameraUniforms.viewport.y * MARGIN || uv.y - radius > cameraUniforms.viewport.y * (1 + MARGIN) {
+        splats[idx].culled = 1;
+        return;
+    }
     
     let cameraDir = normalize(pos - cameraUniforms.view_inv[3].xyz);
     let color = computeColorFromSH(cameraDir, idx, 3);
