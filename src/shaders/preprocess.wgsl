@@ -58,6 +58,9 @@ struct Gaussian {
 struct Splat {
     //TODO: store information for 2D splat rendering
     radius: f32,
+    opacity: f32,
+    uv: vec2f,
+    conic: mat2x2f,
 };
 
 //TODO: bind your data here
@@ -73,7 +76,13 @@ var<storage, read_write> sort_dispatch: DispatchIndirect;
 @group(1) @binding(0)
 var<storage,read> gaussians: array<Gaussian>;
 @group(1) @binding(1)
-var<storage, read> splats: array<Splat>;
+var<storage, read_write> splats: array<Splat>;
+
+@group(2) @binding(0)
+var<uniform> gaussianMultiplier: f32;
+
+@group(3) @binding(0)
+var<uniform> cameraUniforms: CameraUniforms;
 
 /// reads the ith sh coef from the storage buffer 
 fn sh_coef(splat_idx: u32, c_idx: u32) -> vec3<f32> {
@@ -117,8 +126,95 @@ fn computeColorFromSH(dir: vec3<f32>, v_idx: u32, sh_deg: u32) -> vec3<f32> {
 @compute @workgroup_size(workgroupSize,1,1)
 fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgroups) wgs: vec3<u32>) {
     let idx = gid.x;
+    if idx >= arrayLength(&gaussians) { return; }
+
     //TODO: set up pipeline as described in instruction
 
     let keys_per_dispatch = workgroupSize * sortKeyPerThread; 
     // increment DispatchIndirect.dispatchx each time you reach limit for one dispatch of keys
+
+    let gaussian = gaussians[idx];
+
+    let a = unpack2x16float(gaussian.pos_opacity[0]);
+    let b = unpack2x16float(gaussian.pos_opacity[1]);
+    let pos = vec3f(a.x, a.y, b.x);
+    let opacity = b.y;
+
+    let rot0 = unpack2x16float(gaussian.rot[0]);
+    let rot1 = unpack2x16float(gaussian.rot[1]);
+    let quat = vec4(rot0.x, rot0.y, rot1.x, rot1.y);
+    let rotMat = mat3x3f(
+        1 - 2 * (quat.z * quat.z + quat.w * quat.w), 2 * (quat.y * quat.z - quat.x * quat.w), 2 * (quat.y * quat.w + quat.x * quat.z),
+        2 * (quat.y * quat.z + quat.x * quat.w), 1 - 2 * (quat.y * quat.y + quat.w * quat.w), 2 * (quat.z * quat.w - quat.x * quat.y),
+        2 * (quat.y * quat.w - quat.x * quat.z), 2 * (quat.z * quat.w + quat.x * quat.y), 1 - 2 * (quat.y * quat.y + quat.z * quat.z),
+    );
+
+    let scale0 = unpack2x16float(gaussian.scale[0]);
+    let scale1 = unpack2x16float(gaussian.scale[1]);
+    let scale = vec3(scale0.x, scale0.y, scale1.x);
+    let scaleMat = mat3x3f(
+        scale.x, 0, 0,
+        0, scale.y, 0,
+        0, 0, scale.z,
+    ) * gaussianMultiplier;
+
+    let transformMat = rotMat * scaleMat;
+    let cov3 = transformMat * transpose(transformMat);
+
+    let viewPos = (cameraUniforms.view * vec4f(pos, 1)).xyz;
+    
+    let w = mat3x3f(
+        cameraUniforms.view[0].xyz,
+        cameraUniforms.view[1].xyz,
+        cameraUniforms.view[2].xyz,
+    );
+    
+    let tanFov = cameraUniforms.viewport / cameraUniforms.focal / 2 * 1.2;
+    
+    let z2 = viewPos.z * viewPos.z;
+    let j = mat3x3f(
+        cameraUniforms.focal.x / viewPos.z, 0, -cameraUniforms.focal.x * viewPos.x / z2,
+        0, cameraUniforms.focal.y / viewPos.z, -cameraUniforms.focal.y * viewPos.y / z2,
+        0, 0, 0,
+    );
+    
+    let t = j * w;
+    let vrk = mat3x3f(
+        cov3[0][0], cov3[0][1], cov3[0][2],
+        cov3[0][1], cov3[1][1], cov3[1][2],
+        cov3[0][2], cov3[1][2], cov3[2][2],
+    );
+    
+    let cov2_3 = transpose(t) * transpose(vrk) * t;
+    
+    let cov2 = mat2x2(
+        cov2_3[0][0] + 0.3, cov2_3[0][1],
+        cov2_3[0][1], cov2_3[1][1] + 0.3,
+    );
+    
+    let det = determinant(cov2);
+    let conic = mat2x2(
+        cov2[1][1], -cov2[1][0],
+        -cov2[0][1], cov2[0][0],
+    ) * (1 / det);
+    
+    let mid = 0.5 * (cov2[0][0] + cov2[1][1]);
+    let mid2 = mid * mid;
+    let variance = max(
+        mid + sqrt(max(0.1, mid2 - det)),
+        mid - sqrt(max(0.1, mid2 - det)),
+    );
+    let radius = ceil(3 * sqrt(variance));
+    
+    let projPos = cameraUniforms.proj * vec4f(viewPos, 1);
+    let projPos2 = projPos.xyz / projPos.w;
+    let uv = vec2f(
+        (projPos2.x * 0.5 + 0.5) * cameraUniforms.viewport.x,
+        (1 - (projPos2.y * 0.5 + 0.5)) * cameraUniforms.viewport.y,
+    );
+    
+    splats[idx].radius = radius;
+    splats[idx].opacity = opacity;
+    splats[idx].uv = uv;
+    splats[idx].conic = conic;
 }

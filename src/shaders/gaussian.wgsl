@@ -16,6 +16,9 @@ struct Gaussian {
 struct Splat {
     //TODO: information defined in preprocess compute shader
     radius: f32,
+    opacity: f32,
+    uv: vec2f,
+    conic: mat2x2f,
 }
 
 @group(0) @binding(0)

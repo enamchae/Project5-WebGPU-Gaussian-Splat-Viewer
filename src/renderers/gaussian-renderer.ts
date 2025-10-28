@@ -5,7 +5,7 @@ import { get_sorter,c_histogram_block_rows,C } from '../sort/sort';
 import { Renderer } from './renderer';
 
 export interface GaussianRenderer extends Renderer {
-
+  setGaussianMultiplier: (value: number) => void,
 }
 
 // Utility to create GPU buffers
@@ -75,9 +75,93 @@ export default function get_renderer(
     ],
   });
 
+  const gaussiansLayoutPreprocess = device.createBindGroupLayout({
+    label: "gaussians layout",
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "read-only-storage",
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "storage",
+        },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "read-only-storage",
+        },
+      },
+    ],
+  });
+
+  const gaussiansLayoutRender = device.createBindGroupLayout({
+    label: "gaussians layout",
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "read-only-storage",
+        },
+      },
+      {
+        binding: 1,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "read-only-storage",
+        },
+      },
+      {
+        binding: 2,
+        visibility: GPUShaderStage.VERTEX,
+        buffer: {
+          type: "read-only-storage",
+        },
+      },
+    ],
+  });
+  const uniformsLayout = device.createBindGroupLayout({
+    label: "gaussian uniforms layout",
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE,
+        buffer: {
+          type: "uniform",
+        },
+      },
+    ],
+  });
+
+  const cameraLayout = device.createBindGroupLayout({
+    label: "gaussian camera layout",
+    entries: [
+      {
+        binding: 0,
+        visibility: GPUShaderStage.COMPUTE | GPUShaderStage.VERTEX,
+        buffer: {
+          type: "uniform",
+        },
+      },
+    ],
+  });
+
   const preprocessLayout = device.createPipelineLayout({
     label: "preprocess layout",
-    bindGroupLayouts: [sortLayout],
+    bindGroupLayouts: [sortLayout, gaussiansLayoutPreprocess, uniformsLayout, cameraLayout],
+  });
+
+  const renderLayout = device.createPipelineLayout({
+    label: "gaussian render layout",
+    bindGroupLayouts: [cameraLayout, gaussiansLayoutRender],
   });
 
   const preprocess_pipeline = device.createComputePipeline({
@@ -110,16 +194,21 @@ export default function get_renderer(
   // ===============================================
   const splatBuffer = device.createBuffer({
     label: "splat buffer",
-    size: pc.num_points * 16,
-    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+    size: pc.num_points * 32,
+    usage: GPUBufferUsage.STORAGE,
   });
 
+  const uniformsBuffer = device.createBuffer({
+    label: "uniforms buffer",
+    size: 4,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
 
 
   const render_shader = device.createShaderModule({code: renderWGSL});
   const render_pipeline = device.createRenderPipeline({
     label: 'render',
-    layout: 'auto',
+    layout: renderLayout,
     vertex: {
       module: render_shader,
       entryPoint: 'vs_main',
@@ -136,16 +225,36 @@ export default function get_renderer(
 
   const camera_bind_group = device.createBindGroup({
     label: 'point cloud camera',
-    layout: render_pipeline.getBindGroupLayout(0),
+    layout: cameraLayout,
     entries: [{binding: 0, resource: { buffer: camera_buffer }}],
   });
 
-  const gaussian_bind_group = device.createBindGroup({
+  const gaussianGroupPreprocess = device.createBindGroup({
     label: 'point cloud gaussians',
-    layout: render_pipeline.getBindGroupLayout(1),
+    layout: gaussiansLayoutPreprocess,
     entries: [
       {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
       {binding: 1, resource: { buffer: splatBuffer }},
+      {binding: 2, resource: { buffer: pc.sh_buffer }},
+    ],
+  });
+
+
+  const gaussianGroupRender = device.createBindGroup({
+    label: 'point cloud gaussians',
+    layout: gaussiansLayoutRender,
+    entries: [
+      {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
+      {binding: 1, resource: { buffer: splatBuffer }},
+      {binding: 2, resource: { buffer: pc.sh_buffer }},
+    ],
+  });
+
+  const uniformsBindGroup = device.createBindGroup({
+    label: "preprocess settings bind group",
+    layout: uniformsLayout,
+    entries: [
+      {binding: 0, resource: {buffer: uniformsBuffer}},
     ],
   });
 
@@ -166,7 +275,9 @@ export default function get_renderer(
       });
       computePass.setPipeline(preprocess_pipeline);
       computePass.setBindGroup(0, sort_bind_group);
-      computePass.setBindGroup(1, gaussian_bind_group);
+      computePass.setBindGroup(1, gaussianGroupPreprocess);
+      computePass.setBindGroup(2, uniformsBindGroup);
+      computePass.setBindGroup(3, camera_bind_group)
       computePass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
       computePass.end();
       
@@ -182,12 +293,15 @@ export default function get_renderer(
       });
       renderPass.setPipeline(render_pipeline);
       renderPass.setBindGroup(0, camera_bind_group);
-      renderPass.setBindGroup(1, gaussian_bind_group);
+      renderPass.setBindGroup(1, gaussianGroupRender);
   
       renderPass.draw(pc.num_points);
       renderPass.end();
 
     },
     camera_buffer,
+    setGaussianMultiplier: (value: number) => {
+      device.queue.writeBuffer(uniformsBuffer, 0, new Float32Array([value]));
+    },
   };
 }
