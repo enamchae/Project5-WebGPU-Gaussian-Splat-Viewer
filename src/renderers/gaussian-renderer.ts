@@ -8,7 +8,18 @@ export interface GaussianRenderer extends Renderer {
   setGaussianMultiplier: (value: number) => void,
 }
 
-
+// Utility to create GPU buffers
+const createBuffer = (
+  device: GPUDevice,
+  label: string,
+  size: number,
+  usage: GPUBufferUsageFlags,
+  data?: BufferSource
+) => {
+  const buffer = device.createBuffer({ label, size, usage });
+  if (data) device.queue.writeBuffer(buffer, 0, data);
+  return buffer;
+};
 
 export default function get_renderer(
   pc: PointCloud,
@@ -22,6 +33,8 @@ export default function get_renderer(
   // ===============================================
   //    Create Compute Pipeline and Bind Groups
   // ===============================================
+
+  const nulling_data = new Uint32Array([0]);
   
   // Create explicit bind group layout for sort data
   const sortLayout = device.createBindGroupLayout({
@@ -267,6 +280,9 @@ export default function get_renderer(
 
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
+      device.queue.writeBuffer(sorter.sort_info_buffer, 0, nulling_data);
+      device.queue.writeBuffer(sorter.sort_dispatch_indirect_buffer, 0, nulling_data);
+
       const computePass = encoder.beginComputePass({
         label: "Gaussian preprocess compute pass",
       });
@@ -278,7 +294,7 @@ export default function get_renderer(
       computePass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
       computePass.end();
 
-      // sorter.sort(encoder);
+      sorter.sort(encoder);
       
       const renderPass = encoder.beginRenderPass({
         label: 'Gaussian render pass',
