@@ -129,7 +129,7 @@ export default function get_renderer(
     entries: [
       {
         binding: 0,
-        visibility: GPUShaderStage.COMPUTE | GPUShaderStage.VERTEX,
+        visibility: GPUShaderStage.COMPUTE | GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
         buffer: {
           type: "uniform",
         },
