@@ -2,25 +2,26 @@
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 5**
 
-* (TODO) YOUR NAME HERE
-* Tested on: (TODO) **Google Chrome 222.2** on
-  Windows 22, i7-2222 @ 2.22GHz 22GB, GTX 222 222MB (Moore 2222 Lab)
+* Daniel Chen
+* Tested on: Chromium 144 - Windows 11, AMD Ryzen 7 8845HS w/ Radeon 780M Graphics (3.80 GHz), RTX 4070 notebook
+
+This project is a WebGPU implementation of point cloud and Gaussian splat rendering.
+
+Gaussian splat rendering is a rendering technique that depicts a set of oriented, scaled, colored points as small, volumetric Gaussian distribuions in 3D space. This model is is often used in photogrammetry, recreatng 3D scenes from photo data, by gradually making the set of points converge onto a progressively more accurate depiction of a scene. The resulting data can be stored in a `.ply` file, which, alongside a JSON file with camera data, can be read by this web app and rendered in real time as either a point cloud (only centers are drawn, which is faster) or as the full set of Gaussian splats.
 
 ### Live Demo
 
-[![](img/thumb.png)](http://TODO.github.io/Project4-WebGPU-Forward-Plus-and-Clustered-Deferred)
+https://enamchae.github.io/Project5-WebGPU-Gaussian-Splat-Viewer/
+
+[![](./images/cover.png)](https://enamchae.github.io/Project5-WebGPU-Gaussian-Splat-Viewer/)
 
 ### Demo Video/GIF
 
-[![](img/video.mp4)](TODO)
+https://github.com/user-attachments/assets/e26cffa1-f91a-46f7-9415-3bf389344195
 
-### (TODO: Your README)
+### Performance
 
-*DO NOT* leave the README to the last minute! It is a crucial part of the
-project, and we will not be able to grade you without a good README.
 
-This assignment has a considerable amount of performance analysis compared
-to implementation work. Complete the implementation early to leave time!
 
 ### Credits
 
