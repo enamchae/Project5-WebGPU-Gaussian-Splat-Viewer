@@ -199,13 +199,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     ) * (1 / viewPos.z);
     
     let t = w * j;
-    let vrk = mat3x3f(
-        cov3[0][0], cov3[0][1], cov3[0][2],
-        cov3[0][1], cov3[1][1], cov3[1][2],
-        cov3[0][2], cov3[1][2], cov3[2][2],
-    );
-    
-    let cov2_3 = transpose(t) * transpose(vrk) * t;
+    let cov2_3 = transpose(t) * cov3 * t;
     
     let cov2 = mat2x2(
         cov2_3[0][0] + 0.3, cov2_3[0][1],
@@ -214,8 +208,8 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     let det = determinant(cov2);
     let conic = mat2x2(
-        cov2[1][1], -cov2[1][0],
-        -cov2[0][1], cov2[0][0],
+        cov2[1][1], -cov2[0][1],
+        -cov2[1][0], cov2[0][0],
     ) * (1 / det);
     
     let mid = 0.5 * (cov2[0][0] + cov2[1][1]);
