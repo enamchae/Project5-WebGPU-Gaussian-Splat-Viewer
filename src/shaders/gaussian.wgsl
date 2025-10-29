@@ -15,10 +15,10 @@ struct Gaussian {
 
 struct Splat {
     //TODO: information defined in preprocess compute shader
-    radius: f32,
-    opacity: f32,
-    uvNormalized: vec2f,
-    conic: mat2x2f,
+    radiusOpacity: u32,
+    uvNormalized: u32,
+    conicXy: u32,
+    conicZ: f32,
     color: vec3f,
     culled: u32,
 }
@@ -70,14 +70,18 @@ fn vs_main(
         return out;
     }
 
-    let screenPos = (splat.uvNormalized * 0.5 + 0.5) * camera.viewport;
-    let offsetUv = splat.uvNormalized + quadOffsets[in_vertex_index] * splat.radius / (camera.viewport * 0.5);
+    let radiusOpacity = unpack2x16float(splat.radiusOpacity);
+    let uvNormalized = unpack2x16float(splat.uvNormalized);
+    let conicXy = unpack2x16float(splat.conicXy);
+
+    let screenPos = (uvNormalized * 0.5 + 0.5) * camera.viewport;
+    let offsetUv = uvNormalized + quadOffsets[in_vertex_index] * radiusOpacity.x / (camera.viewport * 0.5);
 
     out.position = vec4(offsetUv, 0, 1);
-    out.radius = splat.radius;
+    out.radius = radiusOpacity.x;
     out.color = splat.color;
-    out.conicUpperTriangle = vec3f(splat.conic[0][0], splat.conic[0][1], splat.conic[1][1]);
-    out.opacity = splat.opacity;
+    out.conicUpperTriangle = vec3f(conicXy.x, conicXy.y, splat.conicZ);
+    out.opacity = radiusOpacity.y;
     out.splatCenterScreenPos = screenPos;
 
     return out;
@@ -92,5 +96,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     if power > 0 { discard; }
     
     let alpha = min(0.99, in.opacity * exp(power));
+    if alpha < 1. / 255. { discard; }
     return vec4f(in.color * alpha, alpha);
 }

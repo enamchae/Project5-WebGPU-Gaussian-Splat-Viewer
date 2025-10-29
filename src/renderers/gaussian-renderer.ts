@@ -190,7 +190,7 @@ export default function get_renderer(
   // ===============================================
   const splatBuffer = device.createBuffer({
     label: "splat buffer",
-    size: pc.num_points * 48,
+    size: pc.num_points * 32,
     usage: GPUBufferUsage.STORAGE,
   });
 

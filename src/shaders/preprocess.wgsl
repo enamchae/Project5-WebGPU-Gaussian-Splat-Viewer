@@ -57,10 +57,10 @@ struct Gaussian {
 
 struct Splat {
     //TODO: store information for 2D splat rendering
-    radius: f32,
-    opacity: f32,
-    uvNormalized: vec2f,
-    conic: mat2x2f,
+    radiusOpacity: u32,
+    uvNormalized: u32,
+    conicXy: u32,
+    conicZ: f32,
     color: vec3f,
     culled: u32,
 };
@@ -222,10 +222,10 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let color = computeColorFromSH(cameraDir, idx, 3);
     
     
-    splats[idx].radius = radius;
-    splats[idx].opacity = opacity;
-    splats[idx].uvNormalized = projViewPos.xy;
-    splats[idx].conic = conic;
+    splats[idx].radiusOpacity = pack2x16float(vec2f(radius, opacity));
+    splats[idx].uvNormalized = pack2x16float(projViewPos.xy);
+    splats[idx].conicXy = pack2x16float(vec2f(conic[0][0], conic[0][1]));
+    splats[idx].conicZ = conic[1][1];
     splats[idx].color = color;
     splats[idx].culled = 0;
     
