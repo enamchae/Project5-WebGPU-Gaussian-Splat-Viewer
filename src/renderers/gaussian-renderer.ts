@@ -8,18 +8,7 @@ export interface GaussianRenderer extends Renderer {
   setGaussianMultiplier: (value: number) => void,
 }
 
-// Utility to create GPU buffers
-const createBuffer = (
-  device: GPUDevice,
-  label: string,
-  size: number,
-  usage: GPUBufferUsageFlags,
-  data?: ArrayBuffer | ArrayBufferView
-) => {
-  const buffer = device.createBuffer({ label, size, usage });
-  if (data) device.queue.writeBuffer(buffer, 0, data);
-  return buffer;
-};
+
 
 export default function get_renderer(
   pc: PointCloud,
@@ -274,6 +263,8 @@ export default function get_renderer(
   // ===============================================
   //    Return Render Object
   // ===============================================
+  device.queue.writeBuffer(uniformsBuffer, 0, new Float32Array([1]));
+
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
       const computePass = encoder.beginComputePass({

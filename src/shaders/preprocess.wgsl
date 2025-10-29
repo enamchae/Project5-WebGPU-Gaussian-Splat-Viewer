@@ -59,7 +59,7 @@ struct Splat {
     //TODO: store information for 2D splat rendering
     radius: f32,
     opacity: f32,
-    uv: vec2f,
+    uvNormalized: vec2f,
     conic: mat2x2f,
     color: vec3f,
     culled: u32,
@@ -147,6 +147,22 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let a = unpack2x16float(gaussian.pos_opacity[0]);
     let b = unpack2x16float(gaussian.pos_opacity[1]);
     let pos = vec3f(a.x, a.y, b.x);
+
+    let viewPos = cameraUniforms.view * vec4(pos, 1);
+    let projViewPosHom = cameraUniforms.proj * viewPos;
+    if projViewPosHom.w <= 0 {
+        splats[idx].culled = 1;
+        return;
+    }
+
+    let projViewPos = projViewPosHom.xyz / projViewPosHom.w;
+    
+    const MARGIN = 1.2;
+    if any(abs(projViewPos.xy) > vec2f(MARGIN, MARGIN)) {
+        splats[idx].culled = 1;
+        return;
+    }
+
     let opacity = 1 / (1 + exp(-b.y));
 
     let rot0 = unpack2x16float(gaussian.rot[0]);
@@ -167,27 +183,22 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
         0, 0, scale.z,
     ) * gaussianMultiplier;
 
-    let transformMat = rotMat * scaleMat;
-    let cov3 = transformMat * transpose(transformMat);
+    let transformMat = scaleMat * rotMat;
+    let cov3 = transpose(transformMat) * transformMat;
 
-    let viewPos = (cameraUniforms.view * vec4f(pos, 1)).xyz;
-    
-    let w = mat3x3f(
+    let w = transpose(mat3x3f(
         cameraUniforms.view[0].xyz,
         cameraUniforms.view[1].xyz,
         cameraUniforms.view[2].xyz,
-    );
+    ));
     
-    let tanFov = cameraUniforms.viewport / cameraUniforms.focal / 2 * 1.2;
-    
-    let z2 = viewPos.z * viewPos.z;
     let j = mat3x3f(
-        cameraUniforms.focal.x / viewPos.z, 0, -cameraUniforms.focal.x * viewPos.x / z2,
-        0, cameraUniforms.focal.y / viewPos.z, -cameraUniforms.focal.y * viewPos.y / z2,
+        cameraUniforms.focal.x, 0, -cameraUniforms.focal.x * viewPos.x / viewPos.z,
+        0, cameraUniforms.focal.y, -cameraUniforms.focal.y * viewPos.y / viewPos.z,
         0, 0, 0,
-    );
+    ) * (1 / viewPos.z);
     
-    let t = j * w;
+    let t = w * j;
     let vrk = mat3x3f(
         cov3[0][0], cov3[0][1], cov3[0][2],
         cov3[0][1], cov3[1][1], cov3[1][2],
@@ -208,30 +219,10 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     ) * (1 / det);
     
     let mid = 0.5 * (cov2[0][0] + cov2[1][1]);
-    let mid2 = mid * mid;
-    let eigen1 = mid + sqrt(max(0.1, mid2 - det));
-    let eigen2 = mid - sqrt(max(0.1, mid2 - det));
-    let maxEigen = max(eigen1, eigen2);
-    let radius = ceil(3 * sqrt(maxEigen));
-    
-    const MARGIN = 0.2;
-    
-    let projViewPosHom = cameraUniforms.proj * vec4f(viewPos, 1);
-    if projViewPosHom.w < 0 {
-        splats[idx].culled = 1;
-        return;
-    }
-    let projViewPos = projViewPosHom.xyz / projViewPosHom.w;
-    let uv = vec2f(
-        (projViewPos.x * 0.5 + 0.5) * cameraUniforms.viewport.x,
-        (1 - (projViewPos.y * 0.5 + 0.5)) * cameraUniforms.viewport.y,
-    );
-    
-    if uv.x + radius < -cameraUniforms.viewport.x * MARGIN || uv.x - radius > cameraUniforms.viewport.x * (1 + MARGIN)
-       || uv.y + radius < -cameraUniforms.viewport.y * MARGIN || uv.y - radius > cameraUniforms.viewport.y * (1 + MARGIN) {
-        splats[idx].culled = 1;
-        return;
-    }
+    let quadDiff = sqrt(max(0.1, mid * mid - det));
+    let l1 = mid + quadDiff;
+    let l2 = mid - quadDiff;
+    let radius = ceil(3 * sqrt(max(l1, l2)));
     
     let cameraDir = normalize(pos - cameraUniforms.view_inv[3].xyz);
     let color = computeColorFromSH(cameraDir, idx, 3);
@@ -239,7 +230,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     splats[idx].radius = radius;
     splats[idx].opacity = opacity;
-    splats[idx].uv = uv;
+    splats[idx].uvNormalized = projViewPos.xy;
     splats[idx].conic = conic;
     splats[idx].color = color;
     splats[idx].culled = 0;

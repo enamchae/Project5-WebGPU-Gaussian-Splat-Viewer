@@ -17,7 +17,7 @@ struct Splat {
     //TODO: information defined in preprocess compute shader
     radius: f32,
     opacity: f32,
-    uv: vec2f,
+    uvNormalized: vec2f,
     conic: mat2x2f,
     color: vec3f,
     culled: u32,
@@ -39,8 +39,7 @@ struct VertexOutput {
     @location(1) radius: f32,
     @location(2) conicUpperTriangle: vec3f,
     @location(3) opacity: f32,
-    @location(4) uv: vec2f,
-    @location(5) @interpolate(flat) culled: u32,
+    @location(4) splatCenterScreenPos: vec2f,
 };
 
 const quadOffsets = array(
@@ -63,36 +62,29 @@ fn vs_main(
     let vertex = gaussians[in_instance_index];
     let splat = splats[in_instance_index];
     if splat.culled == 1 {
-        out.culled = 1;
+        out.position = vec4(0, 0, -1, 0);
         return out;
     }
 
-    var uvNormalized = (splat.uv + quadOffsets[in_vertex_index] * splat.radius * 4) / camera.viewport * 2 - 1;
-    uvNormalized.y *= -1;
+    let screenPos = (splat.uvNormalized + 1) * vec2f(0.5, 0.5) * camera.viewport;
+    let offsetUv = splat.uvNormalized + quadOffsets[in_vertex_index] * splat.radius / camera.viewport;
 
-    out.position = vec4(uvNormalized, 0, 1);
+    out.position = vec4(offsetUv, 0, 1);
     out.radius = splat.radius;
     out.color = splat.color;
     out.conicUpperTriangle = vec3f(splat.conic[0][0], splat.conic[0][1], splat.conic[1][1]);
     out.opacity = splat.opacity;
-    out.uv = splat.uv;
+    out.splatCenterScreenPos = screenPos;
 
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    if in.culled == 1 { discard; }
-
-    let posDiff = in.position.xy - in.uv;
-    let conic = mat2x2f(
-        in.conicUpperTriangle.x, in.conicUpperTriangle.y, 
-        in.conicUpperTriangle.y, in.conicUpperTriangle.z,
-    );
-    
-    let power = -0.5 * dot(posDiff, conic * posDiff);
+    let posDiff = in.position.xy - in.splatCenterScreenPos;
+    let power = -0.5 * (in.conicUpperTriangle.x * posDiff.x * posDiff.x + in.conicUpperTriangle.z * posDiff.y * posDiff.y) - in.conicUpperTriangle.y * posDiff.x * posDiff.y;
     if power > 0 { discard; }
     
-    let alpha = min(1, in.opacity * exp(power));
+    let alpha = min(0.99, in.opacity * exp(power));
     return vec4f(in.color * alpha, alpha);
 }
