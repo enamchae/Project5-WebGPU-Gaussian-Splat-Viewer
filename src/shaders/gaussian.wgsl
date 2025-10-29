@@ -84,7 +84,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let posDiff = vec2f(in.position.x, camera.viewport.y - in.position.y) - in.splatCenterScreenPos;
     // return vec4(in.color, 1);
     // return vec4(posDiff, 0, 1);
-    let power = -0.5 * (in.conicUpperTriangle.x * posDiff.x * posDiff.x + in.conicUpperTriangle.z * posDiff.y * posDiff.y) - in.conicUpperTriangle.y * posDiff.x * posDiff.y;
+    let power = -0.5 * (in.conicUpperTriangle.x * posDiff.x * posDiff.x + in.conicUpperTriangle.z * posDiff.y * posDiff.y) + in.conicUpperTriangle.y * posDiff.x * posDiff.y;
     if power > 0 { discard; }
     
     let alpha = min(0.99, in.opacity * exp(power));
