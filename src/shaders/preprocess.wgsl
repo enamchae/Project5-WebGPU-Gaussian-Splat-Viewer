@@ -230,7 +230,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     splats[idx].culled = 0;
     
     let sortIndex = atomicAdd(&sort_infos.keys_size, 1u);
-    sort_depths[sortIndex] = bitcast<u32>(-viewPos.z);
+    sort_depths[sortIndex] = bitcast<u32>(64 - viewPos.z);
     sort_indices[sortIndex] = idx;
     
 

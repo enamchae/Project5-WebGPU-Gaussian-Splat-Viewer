@@ -32,6 +32,9 @@ var<storage,read> gaussians : array<Gaussian>;
 @group(1) @binding(1)
 var<storage, read> splats: array<Splat>;
 
+@group(1) @binding(2)
+var<storage, read> sortIndices: array<u32>;
+
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     //TODO: information passed from vertex shader to fragment shader
@@ -59,8 +62,9 @@ fn vs_main(
     //TODO: reconstruct 2D quad based on information from splat, pass 
     var out: VertexOutput;
 
-    let vertex = gaussians[in_instance_index];
-    let splat = splats[in_instance_index];
+    let sortIndex = sortIndices[in_instance_index];
+
+    let splat = splats[sortIndex];
     if splat.culled == 1 {
         out.position = vec4(0, 0, -1, 0);
         return out;
